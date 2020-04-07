@@ -46,7 +46,7 @@ app.get('/login', (req, res) => {
   // define constants for the authorization request
   const authorizationEndpoint = oidcProviderInfo['authorization_endpoint'];
   const responseType = 'code';
-  const scope = 'openid profile email read:to-dos';
+  const scope = 'openid profile email read:to-dos delete:to-dos';
   const clientID = process.env.CLIENT_ID;
   const redirectUri = 'http://localhost:3000/callback';
   const responseMode = 'query';
@@ -150,7 +150,29 @@ app.get('/to-dos', async (req, res) => {
 });
 
 app.get('/remove-to-do/:id', async (req, res) => {
-  res.status(501).send();
+  const delegatedRequestOptions = {
+    url: `http://localhost:3001/${req.params.id}`,
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${req.session.accessToken}`
+    }
+  };
+  try {
+    const delegatedResponse = await request(delegatedRequestOptions);
+    const delegatedRequestOptions2 = {
+      url: 'http://localhost:3001',
+      headers: {
+        Authorization: `Bearer ${req.session.accessToken}`
+      }
+    };
+    const delegatedResponse2 = await request(delegatedRequestOptions2);
+    const toDos = JSON.parse(delegatedResponse2);
+    res.render('to-dos', {
+      toDos
+    });
+  } catch (error) {
+    res.status(error.statusCode).send(error);
+  }
 });
 
 const { OIDC_PROVIDER } = process.env;
